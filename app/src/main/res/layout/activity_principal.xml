@@ -4,6 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:background="@color/white"
     tools:context=".ActivityPrincipal">
 
@@ -11,15 +12,15 @@
         android:id="@+id/btn_rec"
         android:layout_width="128dp"
         android:layout_height="128dp"
-        android:background="@drawable/ic_baseline_keyboard_voice_24"
-        tools:layout_editor_absoluteX="84dp"
-        tools:layout_editor_absoluteY="168dp" />
+        android:background="@drawable/microfono_negro"
+        android:onClick="Grabar" />
 
     <Button
         android:id="@+id/btn_play"
         android:layout_width="128dp"
         android:layout_height="128dp"
         android:background="@drawable/ic_baseline_play_circle_outline_24"
+        android:onClick="Reproducir"
         tools:layout_editor_absoluteX="90dp"
         tools:layout_editor_absoluteY="254dp" />
 </LinearLayout>
