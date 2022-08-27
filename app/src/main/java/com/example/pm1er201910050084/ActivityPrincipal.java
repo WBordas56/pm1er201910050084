@@ -2,12 +2,14 @@ package com.example.pm1er201910050084;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -27,17 +29,27 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 
 public class ActivityPrincipal extends AppCompatActivity {
 
+    Contactos contactos = new Contactos();
+
+    FirebaseDatabase firebaseDatabase;
+    DatabaseReference databaseReference;
+
     Button btnguardar, btnlistado,btntomarft,btnseleccionarft;
-    EditText txtlatitud,txtlongitud,txtdescripcion,txttelefono;
-    ImageView ivfoto,btngrabar,btnreproducir;
+    EditText txtlatitud,txtlongitud,txtdescripcion,txttelefono,txtnombre;
+    ImageView ivfoto,btngrabar,btnreproducir,btnubicacion;
 
 
     Bitmap imagen;
@@ -54,15 +66,15 @@ public class ActivityPrincipal extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_principal);
 
+        //validacion de camara - permisos
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    //Manifest.permission.ACCESS_COARSE_LOCATION
-            }, 1000);
+                    Manifest.permission.ACCESS_FINE_LOCATION,}, 1000);
         } else {
 
         }
 
+        btnubicacion = findViewById(R.id.btn_ubicacion);
         ivfoto = (ImageView) findViewById(R.id.Foto);
         btntomarft = (Button) findViewById(R.id.btn_tomar_foto);
         btnseleccionarft = (Button) findViewById(R.id.btn_seleccionar_foto);
@@ -71,9 +83,12 @@ public class ActivityPrincipal extends AppCompatActivity {
         txtlatitud = (EditText) findViewById(R.id.txt_latitud);
         txtlongitud = (EditText) findViewById(R.id.txt_longitud);
         txtdescripcion = (EditText) findViewById(R.id.txt_descripcion);
+        txtnombre = (EditText) findViewById(R.id.txt_nombre);
         txttelefono = (EditText) findViewById(R.id.txt_telefono);
-        btnguardar = (Button) findViewById(R.id.btn_guardar);
-        btnlistado = (Button) findViewById(R.id.btn_lista);
+        btnguardar = (Button) findViewById(R.id.btn_actualizar);
+        btnlistado = (Button) findViewById(R.id.btn_eliminar);
+
+        iniciarFirebase();
 
         btntomarft.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -89,14 +104,163 @@ public class ActivityPrincipal extends AppCompatActivity {
             }
         });
 
-        //valida si tiene los permisos de ser asi manda a llamar el metodo locationStart()
+        //validacion de ubicacion - permisos
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION,}, 1000);
         } else {
             locationStart();
         }
 
+        btnguardar.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                try {
+                    Guardar();
+                }catch (Exception e){
+                    Toast.makeText(getApplicationContext(), "Debe de tomarse una foto con ALERT DIALOG",Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+
+        btnubicacion.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                locationStart();
+            }
+        });
+
+        btnlistado.setOnClickListener(this::verLista);
     } // fin OnCreate
+
+    private void verLista(View view) {
+        Intent intent = new Intent(this, ActivityLista.class);
+        startActivity(intent);
+    }
+
+    private void iniciarFirebase() {
+        FirebaseApp.initializeApp(this);
+        firebaseDatabase = FirebaseDatabase.getInstance();
+        databaseReference = firebaseDatabase.getReference();
+    }
+
+    //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    // Guardar
+    private void Guardar() {
+        String LATITUD = txtlatitud.getText().toString();
+        String LONGITUD = txtlongitud.getText().toString();
+        String DIRECCION = txtdescripcion.getText().toString();
+        String NOMBRE = txtnombre.getText().toString();
+        String TELEFONO = txttelefono.getText().toString();
+        String fotoString = GetStringImage(imagen);
+
+        if(fotoString.equals("") || LATITUD.equals("")||LONGITUD.equals("")|| DIRECCION.equals("")||NOMBRE.equals("")||TELEFONO.equals("")){
+            Validar();
+        }
+        else {
+            Toast.makeText(this, "Contacto Guardado", Toast.LENGTH_SHORT).show();
+
+            contactos.setUid(UUID.randomUUID().toString());
+            contactos.setFoto(fotoString);
+            contactos.setLatitud(LATITUD);
+            contactos.setLongitud(LONGITUD);
+            contactos.setDireccion(DIRECCION);
+            contactos.setNombre(NOMBRE);
+            contactos.setTelefono(TELEFONO);
+            databaseReference.child("Contactos").child(contactos.getUid()).setValue(contactos);
+            Toast.makeText(this, "Medicamento Guardado", Toast.LENGTH_SHORT).show();
+            LimpiarCajasTexto();
+        }
+    }
+
+    private void Validar() {
+        String LATITUD = txtlatitud.getText().toString();
+        String LONGITUD = txtlongitud.getText().toString();
+        String DIRECCION = txtdescripcion.getText().toString();
+        String NOMBRE = txtnombre.getText().toString();
+        String TELEFONO = txttelefono.getText().toString();
+        String fotoString = GetStringImage(imagen);
+
+
+        if(fotoString.equals("")){
+            AlertDialog.Builder alerta = new AlertDialog.Builder(this);
+            alerta.setMessage("Debe tomar una foto.")
+                    .setCancelable(false)
+                    .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            dialog.cancel();
+                        }
+                    });
+            AlertDialog titulo = alerta.create();
+            titulo.setTitle("Alerta");
+            titulo.show();
+
+        }
+        else if ( LATITUD.equals("") && LONGITUD.equals("")){
+            AlertDialog.Builder alerta = new AlertDialog.Builder(this);
+            alerta.setMessage("GPS no esta activo.")
+                    .setCancelable(false)
+                    .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            dialog.cancel();
+                        }
+                    });
+            AlertDialog titulo = alerta.create();
+            titulo.setTitle("Alerta");
+            titulo.show();
+        }
+        else if (DIRECCION.equals("")){
+            AlertDialog.Builder alerta = new AlertDialog.Builder(this);
+            alerta.setMessage("Debe describir la ubicación. ¡Es su direccion actual!")
+                    .setCancelable(false)
+                    .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            dialog.cancel();
+                        }
+                    });
+            AlertDialog titulo = alerta.create();
+            titulo.setTitle("Alerta");
+            titulo.show();
+
+            txtdescripcion.setError("Required");
+        }
+        else if(NOMBRE.equals("")){
+            AlertDialog.Builder alerta = new AlertDialog.Builder(this);
+            alerta.setMessage("Debe escribir almenos un nombre.")
+                    .setCancelable(false)
+                    .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            dialog.cancel();
+                        }
+                    });
+            AlertDialog titulo = alerta.create();
+            titulo.setTitle("Alerta");
+            titulo.show();
+
+            txtnombre.setError("Required");
+        }
+        else if (TELEFONO.equals("")){
+            AlertDialog.Builder alerta = new AlertDialog.Builder(this);
+            alerta.setMessage("Debe escribir almenos un telefono valido.")
+                    .setCancelable(false)
+                    .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            dialog.cancel();
+                        }
+                    });
+            AlertDialog titulo = alerta.create();
+            titulo.setTitle("Alerta");
+            titulo.show();
+
+            txttelefono.setError("Required");
+        }
+
+
+    }
 
     //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     // Permisos
@@ -184,7 +348,6 @@ public class ActivityPrincipal extends AppCompatActivity {
         Local.setMainActivity(this);
         final boolean gpsEnabled = mlocManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
         if (!gpsEnabled) {
-            //SE VA A LA CONFIGURACION DEL SISTEMA PARA QUE ACTIVE EL GPS UNA VEZ QUE INICIA LA APLICACION
             Intent settingsIntent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
             startActivity(settingsIntent);
         }
@@ -222,7 +385,6 @@ public class ActivityPrincipal extends AppCompatActivity {
     }
 
     public void setLocation(Location loc) {
-        //Obtener la direccion de la calle a partir de la latitud y la longitud
         if (loc.getLatitude() != 0.0 && loc.getLongitude() != 0.0) {
             try {
                 Geocoder geocoder = new Geocoder(this, Locale.getDefault());
@@ -233,7 +395,7 @@ public class ActivityPrincipal extends AppCompatActivity {
             }
         }
     }
-    ///
+
 
     public static void setLatitud(String latitud) {
         ActivityPrincipal.latitud = latitud;
@@ -245,5 +407,17 @@ public class ActivityPrincipal extends AppCompatActivity {
 
 
 
+    //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    // limpieza de Edittext
+
+
+    private void LimpiarCajasTexto() {
+        txtlatitud.setText("");
+        txtlongitud.setText("");
+        txtdescripcion.setText("");
+        txtnombre.setText("");
+        txttelefono.setText("");
+        ivfoto.setImageBitmap(null);
+    }
 
 }
